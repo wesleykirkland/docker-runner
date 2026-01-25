@@ -2,6 +2,8 @@
 
 This repository contains a containerized GitHub Actions self-hosted runner that can be deployed on any Docker-compatible host. Multiple runners can be launched on a single server to handle parallel job execution across your entire organization.
 
+This takes a PAT scoped to `repo:*` and auto adds runners to specific repos. Organization wide runners are untested. It will automatically pull the latest runner code.
+
 ## Features
 
 - **Ubuntu 20.04 base** - Stable and well-supported
