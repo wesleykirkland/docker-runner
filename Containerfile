@@ -1,6 +1,5 @@
 FROM ubuntu:20.04
 
-ARG RUNNER_VERSION="2.331.0"
 ARG TARGETPLATFORM
 ARG TARGETARCH
 
@@ -18,16 +17,26 @@ RUN apt install -y --no-install-recommends \
     python3 python3-pip python3-venv python3-dev libffi-dev \
     nodejs npm \
     git-lfs \
-    bzip2 xz-utils \
-    sops
+    bzip2 xz-utils
 
-# Download the appropriate runner based on architecture
+# Install Mozilla SOPS from GitHub releases (latest version)
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      SOPS_ARCH="arm64"; \
+    else \
+      SOPS_ARCH="amd64"; \
+    fi \
+    && SOPS_VERSION=$(curl -s https://api.github.com/repos/getsops/sops/releases/latest | jq -r .tag_name | sed 's/^v//') \
+    && curl -L -o /usr/local/bin/sops https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.${SOPS_ARCH} \
+    && chmod +x /usr/local/bin/sops
+
+# Download the appropriate runner based on architecture (latest version)
 RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
     && if [ "$TARGETARCH" = "arm64" ]; then \
          RUNNER_ARCH="arm64"; \
        else \
          RUNNER_ARCH="x64"; \
        fi \
+    && RUNNER_VERSION=$(curl -s https://api.github.com/repos/actions/runner/releases/latest | jq -r .tag_name | sed 's/^v//') \
     && curl -O -L https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz \
     && tar xzf ./actions-runner-linux-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz \
     && rm ./actions-runner-linux-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz
