@@ -25,8 +25,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write  # Required for attestation
-      attestations: write  # Required for attestation
     
     steps:
       - name: Checkout repository
@@ -73,11 +71,4 @@ jobs:
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
 
