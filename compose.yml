@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  runner:
+    # build:
+    #   context: .
+    #   dockerfile: Containerfile
+    #   platforms:
+    #     - linux/arm64
+    # image: github-runner:local
+    image: ghcr.io/wesleykirkland/docker-runner:latest
+    environment:
+      # Replace with your GitHub repository (format: username/repo)
+      - REPO=wesleykirkland/docker
+      # Replace with your GitHub Personal Access Token
+      # IMPORTANT: For production, use Docker secrets or a .env file
+      - ACCESS_TOKEN=REPLACEME
+    deploy:
+      mode: replicated
+      # Number of runner instances to launch
+      replicas: 4
+      resources:
+        limits:
+          # Maximum resources per runner
+          cpus: '0.35'
+          memory: 300M
+        reservations:
+          # Minimum guaranteed resources per runner
+          cpus: '0.25'
+          memory: 128M
+    restart: unless-stopped
+
+# To use this file:
+# 1. Replace REPO with your GitHub repository (format: username/repo)
+# 2. Replace ACCESS_TOKEN with your GitHub Personal Access Token
+# 3. Adjust replicas based on your server capacity
+# 4. Run: docker compose up -d
+# 5. Scale: docker compose up -d --scale runner=6
+

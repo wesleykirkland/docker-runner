@@ -1,0 +1,73 @@
+name: Build and Publish Docker Image
+
+on:
+  release:
+    types: [published]
+  schedule:
+    # Run monthly on the 1st at 00:00 UTC
+    - cron: '0 0 1 * *'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract tag name or set monthly tag
+        id: extract_tag
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+            echo "IS_RELEASE=true" >> $GITHUB_ENV
+          else
+            # For scheduled builds, use monthly tag
+            echo "TAG=monthly-$(date +'%Y-%m')" >> $GITHUB_ENV
+            echo "IS_RELEASE=false" >> $GITHUB_ENV
+          fi
+
+      - name: Determine if tag is stable
+        id: is_stable
+        run: |
+          if [[ "$IS_RELEASE" == "true" ]]; then
+            # Check if the tag is a stable SemVer (no pre-release or beta)
+            if [[ "$TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "stable=true" >> $GITHUB_OUTPUT
+            else
+              echo "stable=false" >> $GITHUB_OUTPUT
+            fi
+          elif [[ "${{ github.event_name }}" == "schedule" ]]; then
+            # Monthly builds are considered stable
+            echo "stable=true" >> $GITHUB_OUTPUT
+          else
+            # Other triggers are not stable
+            echo "stable=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Containerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ env.TAG }}
+            ${{ steps.is_stable.outputs.stable == 'true' && format('ghcr.io/{0}:latest', github.repository) || '' }}
