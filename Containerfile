@@ -9,7 +9,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt update -y && apt upgrade -y && useradd -m docker
 
 # Install common dependencies for GitHub Actions workflows and deployments
-# Includes: git, curl, wget, jq, build tools, Python, Node.js, archive tools
+# Includes: git, curl, wget, jq, build tools, Python, Node.js, archive tools, SSH
 RUN apt install -y --no-install-recommends \
     curl wget jq git unzip zip tar gzip \
     build-essential make cmake \
@@ -17,7 +17,8 @@ RUN apt install -y --no-install-recommends \
     python3 python3-pip python3-venv python3-dev libffi-dev \
     nodejs npm \
     git-lfs \
-    bzip2 xz-utils
+    bzip2 xz-utils \
+    openssh-client
 
 # Install Mozilla SOPS from GitHub releases (latest version)
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
