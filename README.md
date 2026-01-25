@@ -17,7 +17,7 @@ This takes a PAT scoped to `repo:*` and auto adds runners to specific repos. Org
 ## Prerequisites
 
 - Docker or Podman installed on your host
-- GitHub Personal Access Token with `admin:org` scope
+- GitHub Personal Access Token with `repo:*` scope
 - GitHub organization where you want to add self-hosted runners
 
 ## Quick Start
