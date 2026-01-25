@@ -1,13 +1,13 @@
 services:
   runner:
-    build:
-      context: .
-      dockerfile: Containerfile
-      platforms:
-        - linux/arm64
-    image: github-runner:local
+    # build:
+    #   context: .
+    #   dockerfile: Containerfile
+    #   platforms:
+    #     - linux/arm64
+    # image: github-runner:local
     # For production, use the published image:
-    # image: ghcr.io/wesleykirkland/docker-runner:latest
+    image: ghcr.io/wesleykirkland/docker-runner:latest
     environment:
       # Replace with your GitHub repository (format: username/repo)
       - REPO=wesleykirkland/docker
