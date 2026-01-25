@@ -18,7 +18,8 @@ RUN apt install -y --no-install-recommends \
     python3 python3-pip python3-venv python3-dev libffi-dev \
     nodejs npm \
     git-lfs \
-    bzip2 xz-utils
+    bzip2 xz-utils \
+    sops
 
 # Download the appropriate runner based on architecture
 RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
