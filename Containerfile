@@ -29,6 +29,17 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
     && curl -L -o /usr/local/bin/sops https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.${SOPS_ARCH} \
     && chmod +x /usr/local/bin/sops
 
+# Install AWS CLI v2
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      AWS_ARCH="aarch64"; \
+    else \
+      AWS_ARCH="x86_64"; \
+    fi \
+    && curl "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -o "awscliv2.zip" \
+    && unzip awscliv2.zip \
+    && ./aws/install \
+    && rm -rf aws awscliv2.zip
+
 # Download the appropriate runner based on architecture (latest version)
 RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
     && if [ "$TARGETARCH" = "arm64" ]; then \
