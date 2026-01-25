@@ -9,8 +9,22 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt update -y && apt upgrade -y && useradd -m docker
 
+# Install common dependencies for GitHub Actions workflows and deployments
 RUN apt install -y --no-install-recommends \
-    curl jq build-essential libssl-dev libffi-dev python3 python3-venv python3-dev python3-pip
+    # Core utilities
+    curl wget jq git unzip zip tar gzip \
+    # Build tools
+    build-essential make cmake \
+    # SSL/TLS and crypto
+    libssl-dev ca-certificates \
+    # Python ecosystem
+    python3 python3-pip python3-venv python3-dev libffi-dev \
+    # Node.js/JavaScript
+    nodejs npm \
+    # Version control
+    git-lfs \
+    # Archive tools
+    bzip2 xz-utils \
 
 # Download the appropriate runner based on architecture
 RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
