@@ -19,7 +19,8 @@ RUN apt install -y --no-install-recommends \
     git-lfs \
     bzip2 xz-utils \
     openssh-client \
-    rsync
+    rsync \
+    ruby
 
 # Install Mozilla SOPS from GitHub releases (latest version)
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
