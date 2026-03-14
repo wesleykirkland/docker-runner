@@ -38,7 +38,22 @@ fi
 
 # Configure the runner for the repository
 echo "Configuring runner for repository: ${REPO}"
-./config.sh --url https://github.com/${REPO} --token ${REG_TOKEN}
+
+# Build labels argument if RUNNER_LABELS is set
+LABELS_ARG=""
+if [ -n "${RUNNER_LABELS}" ]; then
+    echo "Custom labels: ${RUNNER_LABELS}"
+    LABELS_ARG="--labels ${RUNNER_LABELS}"
+fi
+
+# Build runner name argument if RUNNER_NAME is set
+NAME_ARG=""
+if [ -n "${RUNNER_NAME}" ]; then
+    echo "Runner name: ${RUNNER_NAME}"
+    NAME_ARG="--name ${RUNNER_NAME}"
+fi
+
+./config.sh --url https://github.com/${REPO} --token ${REG_TOKEN} ${LABELS_ARG} ${NAME_ARG}
 
 # Cleanup function to remove runner when container stops
 cleanup() {

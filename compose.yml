@@ -14,6 +14,10 @@ services:
       # Replace with your GitHub Personal Access Token
       # IMPORTANT: For production, use Docker secrets or a .env file
       - ACCESS_TOKEN=REPLACEME
+      # Optional: Custom labels for selective task execution (comma-separated)
+      # - RUNNER_LABELS=docker,linux,x64
+      # Optional: Custom runner name
+      # - RUNNER_NAME=my-custom-runner
     deploy:
       mode: replicated
       # Number of runner instances to launch
@@ -29,10 +33,40 @@ services:
           memory: 128M
     restart: unless-stopped
 
+  # Example: Runner with custom labels for deployment tasks
+  # runner-deploy:
+  #   image: ghcr.io/wesleykirkland/docker-runner:latest
+  #   environment:
+  #     - REPO=wesleykirkland/docker
+  #     - ACCESS_TOKEN=REPLACEME
+  #     - RUNNER_LABELS=deploy,production
+  #   deploy:
+  #     replicas: 2
+  #   restart: unless-stopped
+
+  # Example: Runner with custom labels for build tasks
+  # runner-build:
+  #   image: ghcr.io/wesleykirkland/docker-runner:latest
+  #   environment:
+  #     - REPO=wesleykirkland/docker
+  #     - ACCESS_TOKEN=REPLACEME
+  #     - RUNNER_LABELS=build,docker
+  #   deploy:
+  #     replicas: 2
+  #   restart: unless-stopped
+
 # To use this file:
 # 1. Replace REPO with your GitHub repository (format: username/repo)
 # 2. Replace ACCESS_TOKEN with your GitHub Personal Access Token
-# 3. Adjust replicas based on your server capacity
-# 4. Run: docker compose up -d
-# 5. Scale: docker compose up -d --scale runner=6
+# 3. (Optional) Set RUNNER_LABELS to add custom labels for selective task execution
+# 4. Adjust replicas based on your server capacity
+# 5. Run: docker compose up -d
+# 6. Scale: docker compose up -d --scale runner=6
+#
+# Using labels in GitHub Actions workflows:
+# jobs:
+#   deploy:
+#     runs-on: [self-hosted, deploy, production]
+#   build:
+#     runs-on: [self-hosted, build, docker]
 

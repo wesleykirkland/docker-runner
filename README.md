@@ -10,9 +10,11 @@ This takes a PAT scoped to `repo:*` and auto adds runners to specific repos. Org
 - **Multi-platform support** - Works on both AMD64 (x86_64) and ARM64 (Apple Silicon, ARM servers)
 - **Organization-wide runners** - Runners available to all repositories in your organization
 - **Automatic registration** - Runners self-register with your GitHub organization
+- **Custom labels** - Add custom labels to selectively run workflows on specific runners
 - **Graceful cleanup** - Runners automatically deregister when stopped
 - **Scalable** - Run multiple instances on a single host
 - **Monthly security updates** - Automated builds ensure latest security patches
+- **Latest tools** - Always installs the latest GitHub Actions runner, SOPS, and AWS CLI
 
 ## Prerequisites
 
@@ -41,37 +43,63 @@ docker pull ghcr.io/wesleykirkland/docker-runner:latest
 ```bash
 docker run -d \
   --name github-runner-1 \
-  -e ORG="wesleykirkland" \
+  -e REPO="wesleykirkland/docker-runner" \
   -e ACCESS_TOKEN="your_github_token_here" \
   ghcr.io/wesleykirkland/docker-runner:latest
 ```
 
 Replace:
 
-- `wesleykirkland` with your GitHub organization name
-- `your_github_token_here` with your GitHub Personal Access Token (with `admin:org` scope)
+- `wesleykirkland/docker-runner` with your GitHub repository (format: username/repo)
+- `your_github_token_here` with your GitHub Personal Access Token (with `repo` scope)
 
-### 4. Run Multiple Runners
+### 4. Run with Custom Labels
 
-You can run multiple runners on the same host for parallel job execution across your organization:
+You can add custom labels to selectively run workflows on specific runners:
 
 ```bash
-# Runner 1
+docker run -d \
+  --name github-runner-deploy \
+  -e REPO="wesleykirkland/docker-runner" \
+  -e ACCESS_TOKEN="your_token" \
+  -e RUNNER_LABELS="deploy,production,linux" \
+  ghcr.io/wesleykirkland/docker-runner:latest
+```
+
+Then in your GitHub Actions workflow:
+
+```yaml
+jobs:
+  deploy:
+    runs-on: [self-hosted, deploy, production]
+    steps:
+      - name: Deploy to production
+        run: ./scripts/deploy.sh
+```
+
+### 5. Run Multiple Runners
+
+You can run multiple runners on the same host for parallel job execution:
+
+```bash
+# General purpose runner
 docker run -d --name github-runner-1 \
-  -e ORG="wesleykirkland" \
+  -e REPO="wesleykirkland/docker-runner" \
   -e ACCESS_TOKEN="your_token" \
   ghcr.io/wesleykirkland/docker-runner:latest
 
-# Runner 2
-docker run -d --name github-runner-2 \
-  -e ORG="wesleykirkland" \
+# Deployment runner
+docker run -d --name github-runner-deploy \
+  -e REPO="wesleykirkland/docker-runner" \
   -e ACCESS_TOKEN="your_token" \
+  -e RUNNER_LABELS="deploy,production" \
   ghcr.io/wesleykirkland/docker-runner:latest
 
-# Runner 3
-docker run -d --name github-runner-3 \
-  -e ORG="wesleykirkland" \
+# Build runner
+docker run -d --name github-runner-build \
+  -e REPO="wesleykirkland/docker-runner" \
   -e ACCESS_TOKEN="your_token" \
+  -e RUNNER_LABELS="build,docker" \
   ghcr.io/wesleykirkland/docker-runner:latest
 ```
 
@@ -80,14 +108,14 @@ docker run -d --name github-runner-3 \
 Create a `compose.yml` file:
 
 ```yaml
-version: '3.8'
-
 services:
   runner:
     image: ghcr.io/wesleykirkland/docker-runner:latest
     environment:
-      - ORG=wesleykirkland
+      - REPO=wesleykirkland/docker-runner
       - ACCESS_TOKEN=your_github_token_here
+      # Optional: Add custom labels
+      - RUNNER_LABELS=docker,linux
     deploy:
       mode: replicated
       replicas: 4
@@ -98,6 +126,16 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
+
+  # Example: Dedicated deployment runners
+  runner-deploy:
+    image: ghcr.io/wesleykirkland/docker-runner:latest
+    environment:
+      - REPO=wesleykirkland/docker-runner
+      - ACCESS_TOKEN=your_github_token_here
+      - RUNNER_LABELS=deploy,production
+    deploy:
+      replicas: 2
 ```
 
 Then run:
@@ -111,6 +149,15 @@ Or scale to a specific number:
 ```bash
 docker compose up -d --scale runner=4
 ```
+
+## Environment Variables
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `REPO` | Yes | GitHub repository (format: username/repo) | `wesleykirkland/docker-runner` |
+| `ACCESS_TOKEN` | Yes | GitHub Personal Access Token with `repo` scope | `ghp_xxxxxxxxxxxx` |
+| `RUNNER_LABELS` | No | Comma-separated custom labels for selective task execution | `deploy,production,linux` |
+| `RUNNER_NAME` | No | Custom runner name (auto-generated if not set) | `my-production-runner` |
 
 ## Resource Limits
 
