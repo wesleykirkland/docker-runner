@@ -1,0 +1,10 @@
+[tools]
+aws-cli = "latest"
+jq = "latest"
+node = "latest"
+python = "latest"
+ruby = "latest"
+sops = "latest"
+
+[settings]
+ruby.compile = false

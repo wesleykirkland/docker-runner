@@ -1,26 +1,26 @@
 # GitHub Actions Self-Hosted Runner (Containerized)
 
-This repository contains a containerized GitHub Actions self-hosted runner that can be deployed on any Docker-compatible host. Multiple runners can be launched on a single server to handle parallel job execution across your entire organization.
+This repository contains a containerized GitHub Actions self-hosted runner that can be deployed on any Docker-compatible host. Multiple runners can be launched on a single server to handle parallel job execution for a repository.
 
-This takes a PAT scoped to `repo:*` and auto adds runners to specific repos. Organization wide runners are untested. It will automatically pull the latest runner code.
+This takes a PAT scoped to `repo:*` and auto adds runners to specific repos. Organization-wide runners are untested. It will automatically pull the latest runner code.
 
 ## Features
 
-- **Ubuntu 20.04 base** - Stable and well-supported
+- **Ubuntu 26.04 base** - Current LTS base with security updates
 - **Multi-platform support** - Works on both AMD64 (x86_64) and ARM64 (Apple Silicon, ARM servers)
-- **Organization-wide runners** - Runners available to all repositories in your organization
-- **Automatic registration** - Runners self-register with your GitHub organization
+- **Repository runners** - Runners register directly with the repository you provide
+- **Automatic registration** - Runners self-register with your GitHub repository
 - **Custom labels** - Add custom labels to selectively run workflows on specific runners
 - **Graceful cleanup** - Runners automatically deregister when stopped
 - **Scalable** - Run multiple instances on a single host
 - **Monthly security updates** - Automated builds ensure latest security patches
-- **Latest tools** - Always installs the latest GitHub Actions runner, SOPS, and AWS CLI
+- **mise-managed tools** - Installs AWS CLI, SOPS, jq, Node.js, Python, and Ruby through mise-en-place
 
 ## Prerequisites
 
 - Docker or Podman installed on your host
 - GitHub Personal Access Token with `repo:*` scope
-- GitHub organization where you want to add self-hosted runners
+- GitHub repository where you want to add self-hosted runners
 
 ## Quick Start
 
@@ -28,8 +28,8 @@ This takes a PAT scoped to `repo:*` and auto adds runners to specific repos. Org
 
 1. Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
 2. Click "Generate new token (classic)"
-3. Give it a name (e.g., "Organization runner token")
-4. Select the `admin:org` scope (full control of organizations and teams)
+3. Give it a name (e.g., "Repository runner token")
+4. Select the `repo` scope
 5. Click "Generate token" and copy the token
 
 ### 2. Pull the Image
@@ -185,10 +185,10 @@ docker compose down
 
 Check that your runners are registered:
 
-1. Go to your GitHub organization page
+1. Go to your GitHub repository page
 2. Navigate to Settings → Actions → Runners
 3. You should see your self-hosted runners listed as "Idle" or "Active"
-4. These runners will be available to all repositories in your organization
+4. These runners will be available to the configured repository
 
 ## Building from Source
 
@@ -198,27 +198,42 @@ git clone https://github.com/wesleykirkland/docker-runner.git
 cd docker-runner
 
 # Build the image (automatically detects your platform)
-docker build -t github-runner:local .
+docker build -f Containerfile -t github-runner:local .
 
 # Or build for a specific platform
-docker build --platform linux/amd64 -t github-runner:local .
-docker build --platform linux/arm64 -t github-runner:local .
+docker build -f Containerfile --platform linux/amd64 -t github-runner:local .
+docker build -f Containerfile --platform linux/arm64 -t github-runner:local .
 
 # Run it
 docker run -d \
-  -e ORG="your-organization" \
+  -e REPO="your-organization/your-repository" \
   -e ACCESS_TOKEN="your_token" \
   github-runner:local
 ```
+
+## Toolchain
+
+The image uses [mise-en-place](https://mise.jdx.dev/) for versioned CLI and runtime tools. Tool versions are declared in `mise.toml` and installed into `/opt/mise`; `/opt/mise/shims` is added to `PATH` so workflows can call tools normally.
+
+Currently managed by mise:
+
+- AWS CLI
+- SOPS
+- jq
+- Node.js
+- Python
+- Ruby
+
+APT is still used for Ubuntu system dependencies, build libraries, Git, SSH, archive tools, and the GitHub Actions runner dependency installer.
 
 ## Troubleshooting
 
 ### Runners not appearing in GitHub
 
-- Verify your `ACCESS_TOKEN` has the correct `admin:org` scope
-- Check that `ORG` is your GitHub organization name
+- Verify your `ACCESS_TOKEN` has the correct `repo` scope for repository runners
+- Check that `REPO` is set to `owner/repository`
 - View container logs: `docker logs github-runner-1`
-- Ensure you have admin permissions on the organization
+- Ensure you have admin permissions on the repository
 
 ### Zombie runners (offline but still listed)
 
@@ -231,11 +246,11 @@ If runners weren't stopped gracefully (e.g., server crash), they may appear as o
 ## Security Considerations
 
 - **Token security**: Store your GitHub token securely (use Docker secrets or environment files)
-- **Token scope**: Use `admin:org` scope for organization-wide runners
+- **Token scope**: Use the `repo` scope for repository runners
 - **Network isolation**: Consider running runners in an isolated network
 - **Regular updates**: The image is rebuilt monthly to include security patches
 - **Least privilege**: The runner runs as a non-root user (`docker`)
-- **Organization access**: Runners have access to all repositories in your organization
+- **Repository access**: Runners have access to the configured repository
 
 ## Automated Builds
 
