@@ -24,11 +24,12 @@ RUN apt-get install -y --no-install-recommends \
     openssh-client \
     rsync
 
-# Install versioned CLI tools with mise-en-place.
 RUN curl -fsSL https://mise.run | sh
 
 COPY mise.toml /etc/mise/config.toml
-RUN mise -y install && mise reshim
+RUN mise -y install \
+    && mise doctor \
+    && mise reshim
 
 # Download the appropriate runner based on architecture (latest version)
 RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
