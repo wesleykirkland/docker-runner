@@ -18,7 +18,7 @@ RUN apt-get update -y && apt-get upgrade -y && useradd -m docker
 RUN apt-get install -y --no-install-recommends \
     ca-certificates curl wget git gnupg unzip zip tar gzip \
     build-essential make cmake \
-    libssl-dev libffi-dev \
+    libssl-dev libffi-dev libicu-dev \
     git-lfs \
     bzip2 xz-utils \
     openssh-client \
