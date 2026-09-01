@@ -2,11 +2,34 @@
 
 set -e
 
-echo "Repository: ${REPO}"
+# Validate that exactly one of REPO or ORG is set
+if [ -n "${REPO}" ] && [ -n "${ORG}" ]; then
+    echo "ERROR: Both REPO and ORG are set. Set only one to choose repository-scoped or organization-scoped runner registration."
+    exit 1
+fi
+
+if [ -z "${REPO}" ] && [ -z "${ORG}" ]; then
+    echo "ERROR: Neither REPO nor ORG is set. Set REPO (owner/repo) for a repository runner or ORG (org name) for an organization runner."
+    exit 1
+fi
+
+if [ -n "${ORG}" ]; then
+    SCOPE="org"
+    API_BASE="https://api.github.com/orgs/${ORG}/actions/runners"
+    CONFIG_URL="https://github.com/${ORG}"
+    TARGET_LABEL="organization: ${ORG}"
+else
+    SCOPE="repo"
+    API_BASE="https://api.github.com/repos/${REPO}/actions/runners"
+    CONFIG_URL="https://github.com/${REPO}"
+    TARGET_LABEL="repository: ${REPO}"
+fi
+
+echo "Target ${TARGET_LABEL}"
 echo "Fetching registration token..."
 
-# Get registration token from GitHub API (repository-specific)
-RESPONSE=$(curl -sS -X POST -H "Authorization: token ${ACCESS_TOKEN}" -H "Accept: application/vnd.github+json" https://api.github.com/repos/${REPO}/actions/runners/registration-token)
+# Get registration token from GitHub API
+RESPONSE=$(curl -sS -X POST -H "Authorization: token ${ACCESS_TOKEN}" -H "Accept: application/vnd.github+json" "${API_BASE}/registration-token")
 echo "API Response: ${RESPONSE}"
 
 REG_TOKEN=$(echo "${RESPONSE}" | jq -r .token)
@@ -25,7 +48,7 @@ cd /home/docker/actions-runner
 if [ -f ".runner" ]; then
     echo "Existing runner configuration found. Removing..."
     # Get removal token
-    REMOVE_RESPONSE=$(curl -sS -X POST -H "Authorization: token ${ACCESS_TOKEN}" -H "Accept: application/vnd.github+json" https://api.github.com/repos/${REPO}/actions/runners/remove-token)
+    REMOVE_RESPONSE=$(curl -sS -X POST -H "Authorization: token ${ACCESS_TOKEN}" -H "Accept: application/vnd.github+json" "${API_BASE}/remove-token")
     REMOVE_TOKEN=$(echo "${REMOVE_RESPONSE}" | jq -r .token)
 
     if [ "${REMOVE_TOKEN}" != "null" ] && [ -n "${REMOVE_TOKEN}" ]; then
@@ -36,8 +59,8 @@ if [ -f ".runner" ]; then
     fi
 fi
 
-# Configure the runner for the repository
-echo "Configuring runner for repository: ${REPO}"
+# Configure the runner
+echo "Configuring runner for ${TARGET_LABEL}"
 
 # Build labels argument if RUNNER_LABELS is set
 LABELS_ARG=""
@@ -53,13 +76,20 @@ if [ -n "${RUNNER_NAME}" ]; then
     NAME_ARG="--name ${RUNNER_NAME}"
 fi
 
-./config.sh --url https://github.com/${REPO} --token ${REG_TOKEN} ${LABELS_ARG} ${NAME_ARG}
+# Build runner group argument if RUNNER_GROUP is set (organization runners only)
+GROUP_ARG=""
+if [ "${SCOPE}" == "org" ] && [ -n "${RUNNER_GROUP}" ]; then
+    echo "Runner group: ${RUNNER_GROUP}"
+    GROUP_ARG="--runnergroup ${RUNNER_GROUP}"
+fi
+
+./config.sh --url ${CONFIG_URL} --token ${REG_TOKEN} ${LABELS_ARG} ${NAME_ARG} ${GROUP_ARG}
 
 # Cleanup function to remove runner when container stops
 cleanup() {
     echo "Removing runner..."
     # Get removal token
-    REMOVE_RESPONSE=$(curl -sS -X POST -H "Authorization: token ${ACCESS_TOKEN}" -H "Accept: application/vnd.github+json" https://api.github.com/repos/${REPO}/actions/runners/remove-token)
+    REMOVE_RESPONSE=$(curl -sS -X POST -H "Authorization: token ${ACCESS_TOKEN}" -H "Accept: application/vnd.github+json" "${API_BASE}/remove-token")
     REMOVE_TOKEN=$(echo "${REMOVE_RESPONSE}" | jq -r .token)
 
     if [ "${REMOVE_TOKEN}" != "null" ] && [ -n "${REMOVE_TOKEN}" ]; then
@@ -73,4 +103,3 @@ trap 'cleanup; exit 143' TERM
 
 # Start the runner
 ./run.sh & wait $!
-
