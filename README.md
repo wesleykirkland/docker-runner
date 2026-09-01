@@ -2,14 +2,15 @@
 
 This repository contains a containerized GitHub Actions self-hosted runner that can be deployed on any Docker-compatible host. Multiple runners can be launched on a single server to handle parallel job execution for a repository.
 
-This takes a PAT scoped to `repo:*` and auto adds runners to specific repos. Organization-wide runners are untested. It will automatically pull the latest runner code.
+It takes a GitHub PAT and auto-registers runners with either a specific repository or an entire organization, depending on whether you set `REPO` or `ORG`. It will automatically pull the latest runner code.
 
 ## Features
 
 - **Ubuntu 26.04 base** - Current LTS base with security updates
 - **Multi-platform support** - Works on both AMD64 (x86_64) and ARM64 (Apple Silicon, ARM servers)
 - **Repository runners** - Runners register directly with the repository you provide
-- **Automatic registration** - Runners self-register with your GitHub repository
+- **Organization runners** - Runners register at the organization level and can be assigned to a runner group
+- **Automatic registration** - Runners self-register with your GitHub repository or organization
 - **Custom labels** - Add custom labels to selectively run workflows on specific runners
 - **Graceful cleanup** - Runners automatically deregister when stopped
 - **Scalable** - Run multiple instances on a single host
@@ -19,8 +20,10 @@ This takes a PAT scoped to `repo:*` and auto adds runners to specific repos. Org
 ## Prerequisites
 
 - Docker or Podman installed on your host
-- GitHub Personal Access Token with `repo:*` scope
-- GitHub repository where you want to add self-hosted runners
+- A GitHub Personal Access Token:
+  - `repo` scope for repository runners
+  - `admin:org` scope for organization runners
+- A GitHub repository (`REPO`) or organization (`ORG`) where you want to add self-hosted runners — pick one, they're mutually exclusive per runner instance
 
 ## Quick Start
 
@@ -29,7 +32,7 @@ This takes a PAT scoped to `repo:*` and auto adds runners to specific repos. Org
 1. Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
 2. Click "Generate new token (classic)"
 3. Give it a name (e.g., "Repository runner token")
-4. Select the `repo` scope
+4. Select the `repo` scope for a repository runner, or `admin:org` for an organization runner
 5. Click "Generate token" and copy the token
 
 ### 2. Pull the Image
@@ -38,7 +41,7 @@ This takes a PAT scoped to `repo:*` and auto adds runners to specific repos. Org
 docker pull ghcr.io/wesleykirkland/docker-runner:latest
 ```
 
-### 3. Run a Single Runner
+### 3. Run a Single Repository Runner
 
 ```bash
 docker run -d \
@@ -52,6 +55,25 @@ Replace:
 
 - `wesleykirkland/docker-runner` with your GitHub repository (format: username/repo)
 - `your_github_token_here` with your GitHub Personal Access Token (with `repo` scope)
+
+### 3b. Run a Single Organization Runner
+
+To register a runner at the organization level instead of a single repository, set `ORG` instead of `REPO`:
+
+```bash
+docker run -d \
+  --name github-runner-org-1 \
+  -e ORG="your-organization" \
+  -e ACCESS_TOKEN="your_github_token_here" \
+  ghcr.io/wesleykirkland/docker-runner:latest
+```
+
+Replace:
+
+- `your-organization` with your GitHub organization name
+- `your_github_token_here` with your GitHub Personal Access Token (with `admin:org` scope)
+
+Organization runners can optionally be assigned to a runner group with `RUNNER_GROUP` (see [Environment Variables](#environment-variables)). `REPO` and `ORG` are mutually exclusive — setting both, or neither, causes the container to exit with an error at startup.
 
 ### 4. Run with Custom Labels
 
@@ -136,6 +158,17 @@ services:
       - RUNNER_LABELS=deploy,production
     deploy:
       replicas: 2
+
+  # Example: Organization-wide runners (requires admin:org token scope)
+  runner-org:
+    image: ghcr.io/wesleykirkland/docker-runner:latest
+    environment:
+      - ORG=your-organization
+      - ACCESS_TOKEN=your_github_token_here
+      - RUNNER_LABELS=docker,linux
+      # - RUNNER_GROUP=default
+    deploy:
+      replicas: 2
 ```
 
 Then run:
@@ -154,10 +187,12 @@ docker compose up -d --scale runner=4
 
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|
-| `REPO` | Yes | GitHub repository (format: username/repo) | `wesleykirkland/docker-runner` |
-| `ACCESS_TOKEN` | Yes | GitHub Personal Access Token with `repo` scope | `ghp_xxxxxxxxxxxx` |
+| `REPO` | One of `REPO`/`ORG` | GitHub repository for a repository-scoped runner (format: username/repo). Mutually exclusive with `ORG`. | `wesleykirkland/docker-runner` |
+| `ORG` | One of `REPO`/`ORG` | GitHub organization for an organization-scoped runner. Mutually exclusive with `REPO`. | `wesleykirkland` |
+| `ACCESS_TOKEN` | Yes | GitHub Personal Access Token — `repo` scope for `REPO`, `admin:org` scope for `ORG` | `ghp_xxxxxxxxxxxx` |
 | `RUNNER_LABELS` | No | Comma-separated custom labels for selective task execution | `deploy,production,linux` |
 | `RUNNER_NAME` | No | Custom runner name (auto-generated if not set) | `my-production-runner` |
+| `RUNNER_GROUP` | No | Runner group to assign the runner to (organization runners only, ignored for `REPO`) | `default` |
 
 ## Resource Limits
 
@@ -185,10 +220,10 @@ docker compose down
 
 Check that your runners are registered:
 
-1. Go to your GitHub repository page
+1. Go to your GitHub repository (for `REPO`) or organization (for `ORG`) page
 2. Navigate to Settings → Actions → Runners
 3. You should see your self-hosted runners listed as "Idle" or "Active"
-4. These runners will be available to the configured repository
+4. Repository runners are available only to the configured repository; organization runners are available to any repository in the organization permitted to use the assigned runner group
 
 ## Building from Source
 
@@ -207,6 +242,12 @@ docker build -f Containerfile --platform linux/arm64 -t github-runner:local .
 # Run it
 docker run -d \
   -e REPO="your-organization/your-repository" \
+  -e ACCESS_TOKEN="your_token" \
+  github-runner:local
+
+# Or as an organization runner
+docker run -d \
+  -e ORG="your-organization" \
   -e ACCESS_TOKEN="your_token" \
   github-runner:local
 ```
@@ -230,10 +271,14 @@ APT is still used for Ubuntu system dependencies, build libraries, Git, SSH, arc
 
 ### Runners not appearing in GitHub
 
-- Verify your `ACCESS_TOKEN` has the correct `repo` scope for repository runners
-- Check that `REPO` is set to `owner/repository`
+- Verify your `ACCESS_TOKEN` has the correct scope: `repo` for repository runners, `admin:org` for organization runners
+- Check that `REPO` is set to `owner/repository`, or `ORG` is set to your organization name (not both)
 - View container logs: `docker logs github-runner-1`
-- Ensure you have admin permissions on the repository
+- Ensure you have admin permissions on the repository, or owner/admin permissions on the organization
+
+### Container exits immediately with a REPO/ORG error
+
+- The container validates that exactly one of `REPO` or `ORG` is set and will exit at startup if both or neither are provided. Check your environment variables.
 
 ### Zombie runners (offline but still listed)
 
@@ -246,11 +291,11 @@ If runners weren't stopped gracefully (e.g., server crash), they may appear as o
 ## Security Considerations
 
 - **Token security**: Store your GitHub token securely (use Docker secrets or environment files)
-- **Token scope**: Use the `repo` scope for repository runners
+- **Token scope**: Use the `repo` scope for repository runners; `admin:org` is required for organization runners and is a much broader grant, so scope those tokens and hosts accordingly
 - **Network isolation**: Consider running runners in an isolated network
 - **Regular updates**: The image is rebuilt monthly to include security patches
 - **Least privilege**: The runner runs as a non-root user (`docker`)
-- **Repository access**: Runners have access to the configured repository
+- **Access scope**: Repository runners only have access to the configured repository; organization runners are reachable by any repository in the org permitted to use their runner group, so prefer a dedicated runner group scoped to trusted repositories
 
 ## Automated Builds
 

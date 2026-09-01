@@ -55,13 +55,30 @@ services:
   #     replicas: 2
   #   restart: unless-stopped
 
+  # Example: Organization-wide runner (use ORG instead of REPO)
+  # Requires an ACCESS_TOKEN with admin:org scope (classic PAT).
+  # runner-org:
+  #   image: ghcr.io/wesleykirkland/docker-runner:latest
+  #   environment:
+  #     - ORG=wesleykirkland
+  #     - ACCESS_TOKEN=REPLACEME
+  #     - RUNNER_LABELS=docker,linux
+  #     # Optional: assign to a specific runner group
+  #     # - RUNNER_GROUP=default
+  #   deploy:
+  #     replicas: 2
+  #   restart: unless-stopped
+
 # To use this file:
-# 1. Replace REPO with your GitHub repository (format: username/repo)
+# 1. Set REPO (format: username/repo) for a repository runner, or ORG (org name) for an
+#    organization-wide runner. Set only one - REPO and ORG are mutually exclusive.
 # 2. Replace ACCESS_TOKEN with your GitHub Personal Access Token
+#    (repo scope for REPO, admin:org scope for ORG)
 # 3. (Optional) Set RUNNER_LABELS to add custom labels for selective task execution
-# 4. Adjust replicas based on your server capacity
-# 5. Run: docker compose up -d
-# 6. Scale: docker compose up -d --scale runner=6
+# 4. (Optional) Set RUNNER_GROUP to assign an organization runner to a runner group
+# 5. Adjust replicas based on your server capacity
+# 6. Run: docker compose up -d
+# 7. Scale: docker compose up -d --scale runner=6
 #
 # Using labels in GitHub Actions workflows:
 # jobs:
